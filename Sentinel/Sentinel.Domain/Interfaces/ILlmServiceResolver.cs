@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Sentinel.Application.Services
+namespace Sentinel.Domain.Interfaces
 {
-    internal class LlmResponseParser
+    public interface ILlmServiceResolver
     {
-
+        ILlmService Resolve();
     }
 }

@@ -1,4 +1,11 @@
 
+using OpenAI.Chat;
+using Sentinel.Application.Handlers;
+using Sentinel.Application.Helpers;
+using Sentinel.Domain.Interfaces;
+using Sentinel.Infrastructure.Llm;
+using Sentinel.Infrastructure.Resolvers;
+
 namespace Sentinel.Api
 {
     public class Program
@@ -8,7 +15,18 @@ namespace Sentinel.Api
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-
+            builder.Services.AddSingleton(sp =>
+            {
+                var configuration = sp.GetRequiredService<IConfiguration>();
+                var apiKey = configuration["OpenAi:ApiKey"] ?? throw new InvalidOperationException("OpenAI API key not configured");
+                var model = configuration["OpenAi:Model"] ?? "gpt-4o";
+                return new ChatClient(model, apiKey);
+            });
+            builder.Services.AddScoped<ILlmService, OpenAiService>();
+            builder.Services.AddScoped<AnalyzeCodeDiffHandler>();
+            builder.Services.AddScoped<ILlmServiceResolver, LlmServiceResolver>();
+            builder.Services.AddScoped<SchemaProvider>();
+            builder.Services.AddScoped<PromptBuilder>();
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();

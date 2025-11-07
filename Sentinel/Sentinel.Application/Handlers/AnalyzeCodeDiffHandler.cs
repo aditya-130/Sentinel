@@ -1,4 +1,5 @@
-﻿using Sentinel.Domain.Entities;
+﻿using Sentinel.Application.Helpers;
+using Sentinel.Domain.Entities;
 using Sentinel.Domain.Enums;
 using Sentinel.Domain.Interfaces;
 using System;
@@ -11,30 +12,49 @@ namespace Sentinel.Application.Handlers
 {
     public class AnalyzeCodeDiffHandler
     {
-        private readonly ILlmService _llmService;
-        private readonly ILanguageStrategy _languageStrategy;
+        private readonly ILlmServiceResolver _llmServiceResolver;
+        //private readonly ILanguageStrategy _languageStrategy;
+        private readonly SchemaProvider _schemaProvider;
+        private readonly PromptBuilder _promptBuilder;
 
-        public AnalyzeCodeDiffHandler(ILlmService llmService, ILanguageStrategy languageStrategy)
+        public AnalyzeCodeDiffHandler(ILlmServiceResolver llmServiceResolver, SchemaProvider schemaProvider, PromptBuilder promptBuilder)
         {
-            _languageStrategy = languageStrategy;
-            _llmService = llmService;
+            //_languageStrategy = languageStrategy;
+            _llmServiceResolver = llmServiceResolver;
+            _schemaProvider = schemaProvider;
+            _promptBuilder = promptBuilder;
         }
         
         public async Task<AnalysisResult> Handle(CodeDiff codeDiff)
         {
-            var codeChunks = _languageStrategy.ExtractMethods(codeDiff.NewCode);
-            var prompt = "This is a dummy prompt";
-            foreach (var codeChunk in codeChunks)
-            {
-                var llmResponse = await _llmService.AnalyzeCodeAsync(codeChunk.Code, prompt);
+            var llmService = _llmServiceResolver.Resolve();
+            //var codeChunks = _languageStrategy.ExtractMethods(codeDiff.NewCode);
+            var prompt = _promptBuilder.BuildPrompt(codeDiff.NewCode);
+            var schema = _schemaProvider.GetCodeAnalysisSchema();
+            //foreach (var codeChunk in codeChunks)
+            //{
+            //    var llmResponse = await llmService.AnalyzeCodeAsync(prompt, schema);
 
-            }
-           
+            //}
+            var llmResponse = await llmService.AnalyzeCodeAsync(prompt, schema);
+
             var dummyIssues = new List<ReadabilityIssue>
             {
-                new ReadabilityIssue( "description", 1, 2, Severity.Low, "suggestion")
+                new ReadabilityIssue
+                {
+                    Description = "desc",
+                    StartLine = 1,
+                    EndLine = 2,
+                    Severity = Severity.Low,
+                    Suggestion = llmResponse
+                }
             };
-            var dummyResultWithIssues = new AnalysisResult("filepath", dummyIssues);
+            var dummyResultWithIssues = new AnalysisResult
+            {
+                FilePath = "",
+                Issues = dummyIssues
+            };
+
             return dummyResultWithIssues;
         } 
     }

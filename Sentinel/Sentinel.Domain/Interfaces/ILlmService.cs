@@ -8,6 +8,7 @@ namespace Sentinel.Domain.Interfaces
 {
     public interface ILlmService
     {
-        Task<string> AnalyzeCodeAsync(string code, string prompt);
+        string Provider { get; }
+        Task<string> AnalyzeCodeAsync(string prompt, string schema);
     }
 }

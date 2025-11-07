@@ -1,0 +1,50 @@
+﻿{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "A brief explanation of the readability issue."
+          },
+          "startLine": {
+            "type": "integer",
+            "description": "The line number where the issue starts."
+          },
+          "endLine": {
+            "type": "integer",
+            "description": "The line number where the issue ends."
+          },
+          "severity": {
+            "type": "string",
+            "description": "The severity of the issue.",
+            "enum": [
+              "Low",
+              "Medium",
+              "High",
+              "Critical"
+            ]
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "An optional suggestion for how to fix the issue."
+          }
+        },
+        "required": [
+          "description",
+          "startLine",
+          "endLine",
+          "severity"
+        ]
+      }
+    }
+  },
+  "required": [
+    "issues"
+  ]
+}

@@ -9,5 +9,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Sentinel.Domain\Sentinel.Domain.csproj" />
   </ItemGroup>
+  <ItemGroup>
+	<EmbeddedResource Include="Schemas\*.json" />
+  </ItemGroup>
 
 </Project>

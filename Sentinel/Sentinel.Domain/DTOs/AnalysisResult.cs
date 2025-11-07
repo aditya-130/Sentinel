@@ -14,15 +14,5 @@ namespace Sentinel.Domain.Entities
         public required string FilePath { get; set; }
         public List<ReadabilityIssue> Issues { get; set; } = new List<ReadabilityIssue>();
         public int IssueCount => Issues?.Count ?? 0;
-        [SetsRequiredMembers]
-
-        public AnalysisResult(string filePath, List<ReadabilityIssue> issues)
-        {
-            FilePath = filePath;
-            if (issues != null)
-            {
-                Issues = issues;
-            }
-        }
     }
 }
