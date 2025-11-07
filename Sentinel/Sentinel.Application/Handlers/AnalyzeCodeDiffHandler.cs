@@ -12,39 +12,43 @@ namespace Sentinel.Application.Handlers
 {
     public class AnalyzeCodeDiffHandler
     {
+        private readonly ILanguageStrategyResolver _languageStrategyResolver;
         private readonly ILlmServiceResolver _llmServiceResolver;
         //private readonly ILanguageStrategy _languageStrategy;
         private readonly SchemaProvider _schemaProvider;
         private readonly PromptBuilder _promptBuilder;
-        private readonly CodeAnalysisResponseParser __parser;
+        private readonly CodeAnalysisResponseParser _parser;
 
-        public AnalyzeCodeDiffHandler(ILlmServiceResolver llmServiceResolver, SchemaProvider schemaProvider, PromptBuilder promptBuilder, CodeAnalysisResponseParser parser)
+
+        public AnalyzeCodeDiffHandler(ILanguageStrategyResolver languageStrategyResolver, ILlmServiceResolver llmServiceResolver, SchemaProvider schemaProvider, PromptBuilder promptBuilder, CodeAnalysisResponseParser parser)
         {
-            //_languageStrategy = languageStrategy;
+            _languageStrategyResolver = languageStrategyResolver;
             _llmServiceResolver = llmServiceResolver;
             _schemaProvider = schemaProvider;
             _promptBuilder = promptBuilder;
-            __parser = parser;
+            _parser = parser;
         }
         
         public async Task<AnalysisResult> Handle(CodeDiff codeDiff)
         {
+            var languageStrategy = _languageStrategyResolver.Resolve(Language.CSharp);
+            var codeChunks = languageStrategy.ExtractMethods(codeDiff.NewCode);
             var llmService = _llmServiceResolver.Resolve();
-            //var codeChunks = _languageStrategy.ExtractMethods(codeDiff.NewCode);
-            var prompt = _promptBuilder.BuildPrompt(codeDiff.NewCode);
+            var readabilityIssues = new List<ReadabilityIssue>();
+            //var prompt = _promptBuilder.BuildPrompt(codeDiff.NewCode);
             var schema = _schemaProvider.GetCodeAnalysisSchema();
-            //foreach (var codeChunk in codeChunks)
-            //{
-            //    var llmResponse = await llmService.AnalyzeCodeAsync(prompt, schema);
+            foreach( var codeChunk in codeChunks)
+            {
+                var prompt = _promptBuilder.BuildPrompt(codeChunk.Code);
+                var llmResponseJson = await llmService.AnalyzeCodeAsync(prompt, schema);
+                var llmResult = _parser.Parse(llmResponseJson);
+                readabilityIssues.AddRange(llmResult);
+            }
 
-            //}
-            var llmResponseJson = await llmService.AnalyzeCodeAsync(prompt, schema);
-
-            var readabiliityIssues = __parser.Parse(llmResponseJson);
             var dummyResultWithIssues = new AnalysisResult
             {
                 FilePath = "",
-                Issues = readabiliityIssues
+                Issues = readabilityIssues
             };
 
             return dummyResultWithIssues;

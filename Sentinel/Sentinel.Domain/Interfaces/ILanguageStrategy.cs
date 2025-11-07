@@ -1,4 +1,5 @@
 ﻿using Sentinel.Domain.Entities;
+using Sentinel.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,6 @@ namespace Sentinel.Domain.Interfaces
     public interface ILanguageStrategy
     {
         List<CodeChunk> ExtractMethods(string code);
-        string LanguadeName {  get; }
+        Language LanguageName {  get; }
     }
 }
