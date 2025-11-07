@@ -16,13 +16,15 @@ namespace Sentinel.Application.Handlers
         //private readonly ILanguageStrategy _languageStrategy;
         private readonly SchemaProvider _schemaProvider;
         private readonly PromptBuilder _promptBuilder;
+        private readonly CodeAnalysisResponseParser __parser;
 
-        public AnalyzeCodeDiffHandler(ILlmServiceResolver llmServiceResolver, SchemaProvider schemaProvider, PromptBuilder promptBuilder)
+        public AnalyzeCodeDiffHandler(ILlmServiceResolver llmServiceResolver, SchemaProvider schemaProvider, PromptBuilder promptBuilder, CodeAnalysisResponseParser parser)
         {
             //_languageStrategy = languageStrategy;
             _llmServiceResolver = llmServiceResolver;
             _schemaProvider = schemaProvider;
             _promptBuilder = promptBuilder;
+            __parser = parser;
         }
         
         public async Task<AnalysisResult> Handle(CodeDiff codeDiff)
@@ -36,23 +38,13 @@ namespace Sentinel.Application.Handlers
             //    var llmResponse = await llmService.AnalyzeCodeAsync(prompt, schema);
 
             //}
-            var llmResponse = await llmService.AnalyzeCodeAsync(prompt, schema);
+            var llmResponseJson = await llmService.AnalyzeCodeAsync(prompt, schema);
 
-            var dummyIssues = new List<ReadabilityIssue>
-            {
-                new ReadabilityIssue
-                {
-                    Description = "desc",
-                    StartLine = 1,
-                    EndLine = 2,
-                    Severity = Severity.Low,
-                    Suggestion = llmResponse
-                }
-            };
+            var readabiliityIssues = __parser.Parse(llmResponseJson);
             var dummyResultWithIssues = new AnalysisResult
             {
                 FilePath = "",
-                Issues = dummyIssues
+                Issues = readabiliityIssues
             };
 
             return dummyResultWithIssues;

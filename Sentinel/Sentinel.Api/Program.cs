@@ -27,6 +27,8 @@ namespace Sentinel.Api
             builder.Services.AddScoped<ILlmServiceResolver, LlmServiceResolver>();
             builder.Services.AddScoped<SchemaProvider>();
             builder.Services.AddScoped<PromptBuilder>();
+            builder.Services.AddScoped<CodeAnalysisResponseParser>();
+
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
