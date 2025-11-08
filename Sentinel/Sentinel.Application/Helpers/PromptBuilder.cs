@@ -22,17 +22,25 @@ namespace Sentinel.Application.Helpers
         - Missing comments for complex, non-obvious logic
         - Too many parameters (5+)
 
-        For each issue you find, provide a clear description (e.g., 'ComplexMethod', 'BadNaming', 'NestingDepth'), the start line,
-        the end line, severeity(Low, Mdeium, Hight or Critical) and a possible Suggestion.
+        CRITICAL: When reporting line numbers, count from the FIRST LINE of the code chunk below as line 1.
+        The first line of code you see is line 1, the second line is line 2, and so on.
+        Do NOT count any lines from this prompt - ONLY count lines in the code chunk.
+
+        For each issue you find, provide:
+        - description: Clear issue type (e.g., 'ComplexMethod', 'BadNaming', 'NestingDepth')
+        - startLine: Line number where the issue starts (counting from 1 in the code chunk below)
+        - endLine: Line number where the issue ends (counting from 1 in the code chunk below)
+        - severity: Low, Medium, High, or Critical
+        - suggestion: Specific suggestion on how to fix it
 
         If the code is clear and has no issues, return an empty 'issues' array.
-        Here is the code chunk:
+
+        CODE CHUNK TO ANALYZE:
         {0}
         """;
 
         public string BuildPrompt(string code)
         {
-
             return string.Format(ReadabilityAnalysisPromptCS, code);
         }
     }

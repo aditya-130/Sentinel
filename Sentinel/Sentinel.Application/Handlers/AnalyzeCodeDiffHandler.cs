@@ -39,7 +39,7 @@ namespace Sentinel.Application.Handlers
 
             for (int i = 0; i < codeChunks.Count; i += batchSize)
             {
-                var batch = codeChunks.Skip(i).Take(batchSize);
+                var batch = codeChunks.Skip(i).Take(batchSize).ToList();
 
                 var tasks = batch.Select(async chunk =>
                 {
@@ -47,13 +47,20 @@ namespace Sentinel.Application.Handlers
                     {
                         var prompt = _promptBuilder.BuildPrompt(chunk.Code);
                         var response = await llmService.AnalyzeCodeAsync(prompt, schema);
-                        return _parser.Parse(response);
+                        var issues = _parser.Parse(response);
+
+                        foreach (var issue in issues)
+                        {
+                            issue.StartLine += chunk.StartLine - 1;
+                            issue.EndLine += chunk.StartLine - 1;
+                        }
+
+                        return issues;
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"ERROR analyzing method '{chunk.MethodName}': {ex.Message}");
                         return new List<ReadabilityIssue>();
-
                     }
                 });
 
