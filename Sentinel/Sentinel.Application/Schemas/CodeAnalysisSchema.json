@@ -2,49 +2,38 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "methodName": {
+      "type": "string",
+      "description": "The name of the method that was analyzed."
+    },
     "issues": {
       "type": "array",
+      "description": "List of readability issues found in the method.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "type": {
+            "type": "string",
+            "description": "The category of readability issue (e.g., TooManyParameters, BadNaming, NestingDepth)."
+          },
           "description": {
             "type": "string",
             "description": "A brief explanation of the readability issue."
           },
-          "startLine": {
-            "type": "integer",
-            "description": "The line number where the issue starts."
-          },
-          "endLine": {
-            "type": "integer",
-            "description": "The line number where the issue ends."
-          },
           "severity": {
             "type": "string",
             "description": "The severity of the issue.",
-            "enum": [
-              "Low",
-              "Medium",
-              "High",
-              "Critical"
-            ]
+            "enum": [ "Low", "Medium", "High", "Critical" ]
           },
           "suggestion": {
             "type": "string",
-            "description": "An optional suggestion for how to fix the issue."
+            "description": "A concrete suggestion for how to improve readability."
           }
         },
-        "required": [
-          "description",
-          "startLine",
-          "endLine",
-          "severity"
-        ]
+        "required": [ "type", "description", "severity" ]
       }
     }
   },
-  "required": [
-    "issues"
-  ]
+  "required": [ "methodName", "issues" ]
 }

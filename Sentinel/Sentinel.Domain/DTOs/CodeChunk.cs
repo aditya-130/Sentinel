@@ -12,8 +12,6 @@ namespace Sentinel.Domain.Entities
     public class CodeChunk
     {
         public required string Code { get; set; }
-        public required int StartLine { get; set; }
-        public required int EndLine { get; set; }
         public required string MethodName { get; set; }
     }
 }

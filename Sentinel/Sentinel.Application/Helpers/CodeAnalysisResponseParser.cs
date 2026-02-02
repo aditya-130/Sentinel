@@ -22,8 +22,6 @@ namespace Sentinel.Application.Helpers
                 readabilityIssues.Add(new ReadabilityIssue
                 {
                     Description = issue.GetProperty("description").GetString()!,
-                    StartLine = issue.GetProperty("startLine").GetInt32(),
-                    EndLine = issue.GetProperty("endLine").GetInt32(),
                     Severity = ParseSeverity(issue.GetProperty("severity").GetString()!),
                     Suggestion = issue.TryGetProperty("suggestion", out var suggestion) ? suggestion.GetString() : null,
                 });

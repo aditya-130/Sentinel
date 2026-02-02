@@ -11,8 +11,7 @@ namespace Sentinel.Domain.Entities
     public class ReadabilityIssue
     {
         public required string Description { get; set; }
-        public int StartLine { get; set; }
-        public int EndLine { get; set; }
+
         public Severity Severity { get; set; }
         public string? Suggestion { get; set; }    
     }

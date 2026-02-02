@@ -1,4 +1,5 @@
 ﻿using Sentinel.Application.Helpers;
+using Sentinel.Domain.DTOs;
 using Sentinel.Domain.Entities;
 using Sentinel.Domain.Enums;
 using Sentinel.Domain.Interfaces;
@@ -27,52 +28,64 @@ namespace Sentinel.Application.Handlers
             _parser = parser;
         }
 
-        public async Task<AnalysisResult> Handle(CodeDiff codeDiff)
+        public async Task<PullRequestAnalysisResult> Handle(List<CodeDiff> codeDiffs)
         {
+            var result = new PullRequestAnalysisResult();
+
             var languageStrategy = _languageStrategyResolver.Resolve(Language.CSharp);
-            var codeChunks = languageStrategy.ExtractMethods(codeDiff.NewCode);
             var llmService = _llmServiceResolver.Resolve();
             var schema = _schemaProvider.GetCodeAnalysisSchema();
 
-            var allIssues = new List<ReadabilityIssue>();
             const int batchSize = 5;
 
-            for (int i = 0; i < codeChunks.Count; i += batchSize)
+            foreach (var codeDiff in codeDiffs)
             {
-                var batch = codeChunks.Skip(i).Take(batchSize).ToList();
+                var codeChunks = languageStrategy.ExtractMethods(codeDiff.NewCode);
 
-                var tasks = batch.Select(async chunk =>
+                var methods = new List<MethodAnalysisResult>();
+
+                for (int i = 0; i < codeChunks.Count; i += batchSize)
                 {
-                    try
-                    {
-                        var prompt = _promptBuilder.BuildPrompt(chunk.Code);
-                        var response = await llmService.AnalyzeCodeAsync(prompt, schema);
-                        var issues = _parser.Parse(response);
+                    var batch = codeChunks.Skip(i).Take(batchSize).ToList();
 
-                        foreach (var issue in issues)
+                    var tasks = batch.Select(async chunk =>
+                    {
+                        try
                         {
-                            issue.StartLine += chunk.StartLine - 1;
-                            issue.EndLine += chunk.StartLine - 1;
+                            var prompt = _promptBuilder.BuildPrompt(chunk.Code);
+                            var response = await llmService.AnalyzeCodeAsync(prompt, schema);
+                            var issues = _parser.Parse(response);
+
+                            return new MethodAnalysisResult
+                            {
+                                MethodName = chunk.MethodName,
+                                Issues = issues
+                            };
                         }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"ERROR analyzing method '{chunk.MethodName}' in '{codeDiff.FilePath}': {ex.Message}");
 
-                        return issues;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"ERROR analyzing method '{chunk.MethodName}': {ex.Message}");
-                        return new List<ReadabilityIssue>();
-                    }
+                            return new MethodAnalysisResult
+                            {
+                                MethodName = chunk.MethodName,
+                                Issues = new List<ReadabilityIssue>()
+                            };
+                        }
+                    });
+
+                    var batchResults = await Task.WhenAll(tasks);
+                    methods.AddRange(batchResults);
+                }
+
+                result.Files.Add(new FileAnalysisResult
+                {
+                    FilePath = codeDiff.FilePath,
+                    Methods = methods
                 });
-
-                var batchResults = await Task.WhenAll(tasks);
-                allIssues.AddRange(batchResults.SelectMany(issues => issues));
             }
 
-            return new AnalysisResult
-            {
-                FilePath = codeDiff.FilePath,
-                Issues = allIssues
-            };
+            return result;
         }
     }
 }

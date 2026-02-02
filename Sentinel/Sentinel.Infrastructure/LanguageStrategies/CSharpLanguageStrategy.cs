@@ -20,15 +20,14 @@ namespace Sentinel.Infrastructure.LanguageStrategies
                 .OfType<MethodDeclarationSyntax>()
                 .Select(method =>
                 {
-                    var fullSpan = method.FullSpan;
-                    var lineSpan = syntaxTree.GetLineSpan(fullSpan);
+                    var span = method.Span;
+                    var lineSpan = syntaxTree.GetLineSpan(span);
 
                     return new CodeChunk
                     {
                         MethodName = method.Identifier.Text,
-                        Code = method.ToFullString(),
-                        StartLine = lineSpan.StartLinePosition.Line + 1,
-                        EndLine = lineSpan.EndLinePosition.Line + 1
+                        Code = method.ToString().TrimEnd() + "\n",
+                        
                     };
                 })
                 .ToList();
