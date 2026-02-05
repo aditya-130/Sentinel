@@ -1,4 +1,5 @@
-﻿using Sentinel.Application.Helpers;
+﻿using Microsoft.Extensions.Logging;
+using Sentinel.Application.Helpers;
 using Sentinel.Domain.DTOs;
 using Sentinel.Domain.Entities;
 using Sentinel.Domain.Enums;
@@ -10,6 +11,8 @@ namespace Sentinel.Application.Handlers
     {
         private readonly ILanguageStrategyResolver _languageStrategyResolver;
         private readonly ILlmServiceResolver _llmServiceResolver;
+        private readonly ICacheServiceResolver _cacheServiceResolver;
+        private readonly ILogger<AnalyzeCodeDiffHandler> _logger;
         private readonly SchemaProvider _schemaProvider;
         private readonly PromptBuilder _promptBuilder;
         private readonly CodeAnalysisResponseParser _parser;
@@ -17,12 +20,16 @@ namespace Sentinel.Application.Handlers
         public AnalyzeCodeDiffHandler(
             ILanguageStrategyResolver languageStrategyResolver,
             ILlmServiceResolver llmServiceResolver,
+            ICacheServiceResolver cacheServiceResolver,
+            ILogger<AnalyzeCodeDiffHandler> logger,
             SchemaProvider schemaProvider,
             PromptBuilder promptBuilder,
             CodeAnalysisResponseParser parser)
         {
             _languageStrategyResolver = languageStrategyResolver;
             _llmServiceResolver = llmServiceResolver;
+            _cacheServiceResolver = cacheServiceResolver;
+            _logger = logger;
             _schemaProvider = schemaProvider;
             _promptBuilder = promptBuilder;
             _parser = parser;
@@ -34,6 +41,7 @@ namespace Sentinel.Application.Handlers
 
             var languageStrategy = _languageStrategyResolver.Resolve(Language.CSharp);
             var llmService = _llmServiceResolver.Resolve();
+            var cacheService = _cacheServiceResolver.Resolve();
             var schema = _schemaProvider.GetCodeAnalysisSchema();
 
             const int batchSize = 5;
@@ -52,8 +60,20 @@ namespace Sentinel.Application.Handlers
                     {
                         try
                         {
-                            var prompt = _promptBuilder.BuildPrompt(chunk.Code);
-                            var response = await llmService.AnalyzeCodeAsync(prompt, schema);
+                            var cachedResponse = await cacheService.GetAnalysisByCodeAsync(chunk.Code);
+
+                            string response;
+                            if (cachedResponse != null)
+                            {
+                                response = cachedResponse;
+                            }
+                            else
+                            {
+                                var prompt = _promptBuilder.BuildPrompt(chunk.Code);
+                                response = await llmService.AnalyzeCodeAsync(prompt, schema);
+                                await cacheService.SetAnalysisByCodeAsync(chunk.Code, response);
+                            }
+
                             var issues = _parser.Parse(response);
 
                             return new MethodAnalysisResult
@@ -64,8 +84,7 @@ namespace Sentinel.Application.Handlers
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"ERROR analyzing method '{chunk.MethodName}' in '{codeDiff.FilePath}': {ex.Message}");
-
+                            _logger.LogError(ex, "Error analyzing method '{MethodName}' in '{FilePath}'",chunk.MethodName, codeDiff.FilePath);
                             return new MethodAnalysisResult
                             {
                                 MethodName = chunk.MethodName,

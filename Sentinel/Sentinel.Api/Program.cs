@@ -3,6 +3,7 @@ using OpenAI.Chat;
 using Sentinel.Application.Handlers;
 using Sentinel.Application.Helpers;
 using Sentinel.Domain.Interfaces;
+using Sentinel.Infrastructure.Caching;
 using Sentinel.Infrastructure.LanguageStrategies;
 using Sentinel.Infrastructure.Llm;
 using Sentinel.Infrastructure.Resolvers;
@@ -24,11 +25,19 @@ namespace Sentinel.Api
                 return new ChatClient(model, apiKey);
             });
 
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = builder.Configuration.GetConnectionString("Redis");
+                options.InstanceName = "Sentinel:";
+            });
+
             builder.Services.AddScoped<ILlmServiceResolver, LlmServiceResolver>();
             builder.Services.AddScoped<ILanguageStrategyResolver, LanguageStrategyResolver>();
+            builder.Services.AddScoped<ICacheServiceResolver, CacheServiceResolver>();
+
 
             builder.Services.AddScoped<ILanguageStrategy, CSharpLanguageStrategy>();
-
+            builder.Services.AddScoped<ICodeAnalysisCache, RedisCodeAnalysisCache>();
             builder.Services.AddScoped<ILlmService, OpenAiService>();
 
             builder.Services.AddScoped<AnalyzeCodeDiffHandler>();
