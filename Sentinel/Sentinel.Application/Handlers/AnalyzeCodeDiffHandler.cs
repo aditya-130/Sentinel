@@ -37,74 +37,94 @@ namespace Sentinel.Application.Handlers
 
         public async Task<PullRequestAnalysisResult> Handle(List<CodeDiff> codeDiffs)
         {
-            var result = new PullRequestAnalysisResult();
+            var prAnalysisResult = new PullRequestAnalysisResult();
 
             var languageStrategy = _languageStrategyResolver.Resolve(Language.CSharp);
             var llmService = _llmServiceResolver.Resolve();
             var cacheService = _cacheServiceResolver.Resolve();
             var schema = _schemaProvider.GetCodeAnalysisSchema();
 
-            const int batchSize = 5;
-
-            foreach (var codeDiff in codeDiffs)
+            const int fileBatchSize = 3;
+            const int methodBatchSize = 6;
+            
+            for (var i = 0; i < codeDiffs.Count; i += fileBatchSize)
             {
-                var codeChunks = languageStrategy.ExtractMethods(codeDiff.NewCode);
-
-                var methods = new List<MethodAnalysisResult>();
-
-                for (int i = 0; i < codeChunks.Count; i += batchSize)
+                var fileBatch = codeDiffs.Skip(i).Take(fileBatchSize).ToList();
+                var fileTasks = fileBatch.Select(async codeDiff =>
                 {
-                    var batch = codeChunks.Skip(i).Take(batchSize).ToList();
+                    var codeChunks = languageStrategy.ExtractMethods(codeDiff.NewCode);
 
-                    var tasks = batch.Select(async chunk =>
+                    var methodAnalysis = await AnalyzeMethods(codeChunks, codeDiff.FilePath, methodBatchSize, llmService, cacheService, schema);
+                    
+                    return new FileAnalysisResult
                     {
-                        try
-                        {
-                            var cachedResponse = await cacheService.GetAnalysisByCodeAsync(chunk.Code);
-
-                            string response;
-                            if (cachedResponse != null)
-                            {
-                                response = cachedResponse;
-                            }
-                            else
-                            {
-                                var prompt = _promptBuilder.BuildPrompt(chunk.Code);
-                                response = await llmService.AnalyzeCodeAsync(prompt, schema);
-                                await cacheService.SetAnalysisByCodeAsync(chunk.Code, response);
-                            }
-
-                            var issues = _parser.Parse(response);
-
-                            return new MethodAnalysisResult
-                            {
-                                MethodName = chunk.MethodName,
-                                Issues = issues
-                            };
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error analyzing method '{MethodName}' in '{FilePath}'",chunk.MethodName, codeDiff.FilePath);
-                            return new MethodAnalysisResult
-                            {
-                                MethodName = chunk.MethodName,
-                                Issues = new List<ReadabilityIssue>()
-                            };
-                        }
-                    });
-
-                    var batchResults = await Task.WhenAll(tasks);
-                    methods.AddRange(batchResults);
-                }
-
-                result.Files.Add(new FileAnalysisResult
-                {
-                    FilePath = codeDiff.FilePath,
-                    Methods = methods
+                        FilePath = codeDiff.FilePath,
+                        Methods = methodAnalysis
+                    };
                 });
+                var fileBatchResults = await Task.WhenAll(fileTasks);
+                prAnalysisResult.Files.AddRange(fileBatchResults);
             }
 
-            return result;
+            return prAnalysisResult;
+        }
+
+        private async Task<List<MethodAnalysisResult>> AnalyzeMethods(
+            List<CodeChunk> codeChunks,
+            string filePath,
+            int methodBatchSize,
+            ILlmService llmService,
+            ICodeAnalysisCache cacheService,
+            string schema)
+        {
+
+            var methods = new List<MethodAnalysisResult>();
+
+
+            for (int i = 0; i < codeChunks.Count; i += methodBatchSize)
+            {
+                var methodBatch = codeChunks.Skip(i).Take(methodBatchSize).ToList();
+                var methodTasks = methodBatch.Select(async chunk =>
+                {
+                    try
+                    {
+                        var cachedResponse = await cacheService.GetAnalysisByCodeAsync(chunk.Code);
+
+                        string response;
+                        if (cachedResponse != null)
+                        {
+                            response = cachedResponse;
+                        }
+                        else
+                        {
+                            var prompt = _promptBuilder.BuildPrompt(chunk.Code);
+                            response = await llmService.AnalyzeCodeAsync(prompt, schema);
+                            await cacheService.SetAnalysisByCodeAsync(chunk.Code, response);
+                        }
+
+                        var issues = _parser.Parse(response);
+
+                        return new MethodAnalysisResult
+                        {
+                            MethodName = chunk.MethodName,
+                            Issues = issues
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error analyzing method '{MethodName}' in '{FilePath}'", chunk.MethodName, filePath);
+                        return new MethodAnalysisResult
+                        {
+                            MethodName = chunk.MethodName,
+                            Issues = new List<ReadabilityIssue>()
+                        };
+                    }
+                });
+                var methodBatchResults = await Task.WhenAll(methodTasks);
+                methods.AddRange(methodBatchResults);
+            }
+            return methods;
+
         }
     }
 }
